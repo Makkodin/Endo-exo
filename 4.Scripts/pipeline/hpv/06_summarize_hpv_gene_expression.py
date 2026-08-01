@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Normalize HPV featureCounts genes without using clinical metadata."""
-from __future__ import annotations
 import argparse,re
 from pathlib import Path
 import pandas as pd

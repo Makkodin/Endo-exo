@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
 import argparse, hashlib, json, os
 from datetime import datetime, timezone
 from pathlib import Path

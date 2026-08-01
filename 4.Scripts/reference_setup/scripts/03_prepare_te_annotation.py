@@ -2,11 +2,11 @@
 
 """Build broad repeat-element locus annotation from the UCSC hg38 RepeatMasker table."""
 
-from __future__ import annotations
 
 import argparse
 import re
 from pathlib import Path
+from typing import Set
 
 import pandas as pd
 
@@ -64,7 +64,7 @@ def normalize_chrom(chrom: str, chr_style: str) -> str:
         return chrom[3:]
     return chrom
 
-def load_fai_contigs(fai_path: str) -> set[str]:
+def load_fai_contigs(fai_path: str) -> Set[str]:
     contigs = set()
     with open(fai_path, "r", encoding="utf-8") as handle:
         for line in handle:

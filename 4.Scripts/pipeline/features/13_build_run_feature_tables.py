@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Build metadata-free run-level dense summaries and lossless sparse locus matrices."""
-from __future__ import annotations
 import argparse,gzip,hashlib,json,os,re
 from datetime import datetime,timezone
 from pathlib import Path

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
 
 import argparse
 import csv
@@ -7,6 +6,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import Dict, List, Set
 
 SRA_RE = re.compile(r"^(?:sra:)?([SED]RR\d+)$", re.I)
 SAFE_SAMPLE_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -19,10 +19,10 @@ def sniff_delimiter(path: Path) -> str:
     except csv.Error:
         return ","
 
-def load_samples(path: Path, check_files: bool = True) -> list[dict[str, str]]:
+def load_samples(path: Path, check_files: bool = True) -> List[Dict[str, str]]:
     delimiter = sniff_delimiter(path)
-    rows: list[dict[str, str]] = []
-    seen: set[str] = set()
+    rows: List[Dict[str, str]] = []
+    seen: Set[str] = set()
     with path.open(newline="", encoding="utf-8-sig") as handle:
         reader = csv.DictReader(handle, delimiter=delimiter)
         if reader.fieldnames != ["sample", "Fq1", "Fq2"]:

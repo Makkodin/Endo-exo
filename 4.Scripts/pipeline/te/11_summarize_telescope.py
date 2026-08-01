@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Optional, Union
 
 import pandas as pd
 
@@ -18,7 +18,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out-dir", required=True)
     return parser.parse_args()
 
-def read_tsv_or_empty(path: str | Path) -> pd.DataFrame:
+def read_tsv_or_empty(path: Union[str, Path]) -> pd.DataFrame:
     if not path:
         return pd.DataFrame()
     p = Path(path)
@@ -26,7 +26,7 @@ def read_tsv_or_empty(path: str | Path) -> pd.DataFrame:
         return pd.DataFrame()
     return pd.read_csv(p, sep="\t", low_memory=False).fillna("")
 
-def read_library_pairs(path: str | Path) -> float:
+def read_library_pairs(path: Union[str, Path]) -> float:
     df = read_tsv_or_empty(path)
     if df.empty:
         return 0.0
@@ -36,7 +36,7 @@ def read_library_pairs(path: str | Path) -> float:
             return to_float(row.get(col, 0))
     return 0.0
 
-def choose_count_col(df: pd.DataFrame) -> str | None:
+def choose_count_col(df: pd.DataFrame) -> Optional[str]:
     candidates = ["est_counts", "est_count", "estimated_count", "expected_count", "count", "assigned_counts", "final_count", "telescope_count"]
     for col in candidates:
         if col in df.columns:
@@ -50,7 +50,7 @@ def choose_count_col(df: pd.DataFrame) -> str | None:
         return None
     return sorted(numeric, key=lambda x: x[1], reverse=True)[0][0]
 
-def choose_locus_col(df: pd.DataFrame) -> str | None:
+def choose_locus_col(df: pd.DataFrame) -> Optional[str]:
     for col in ["transcript", "transcript_id", "gene_id", "locus_id", "ID", "feature"]:
         if col in df.columns:
             return col

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
 import argparse, hashlib, json, os, platform, re, subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -92,7 +91,7 @@ def file_info(path, checksum):
 
 def command_version(cmd):
     try:
-        x=subprocess.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=30,check=False)
+        x=subprocess.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True,timeout=30,check=False)
         return (x.stdout or '').splitlines()[0].strip()
     except Exception as e: return f'unavailable: {e}'
 

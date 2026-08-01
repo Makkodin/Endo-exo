@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Lossless HERV/LTR/ERV locus quantification and class/family/repeat-name summaries."""
-from __future__ import annotations
 import argparse
 from pathlib import Path
 import pandas as pd
