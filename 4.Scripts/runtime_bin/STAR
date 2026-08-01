@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REAL_STAR_BIN="${REAL_STAR_BIN:-/usr/lib/rna-star/bin/STAR-avx2}"
+LOCK_FILE="${STAR_LOCK_FILE:-/project/_Logs/.star_memory.lock}"
+MIN_MEM_KB="${STAR_MIN_MEM_KB:-30000000}"
+WAIT_SEC="${STAR_WAIT_SEC:-60}"
+
+log() {
+  echo "[$(date)] [STAR_LOCK] $*"
+}
+
+mkdir -p "$(dirname "$LOCK_FILE")"
+
+exec 9>"$LOCK_FILE"
+
+log "Waiting for STAR lock: $LOCK_FILE"
+flock 9
+
+log "Lock acquired"
+
+while true; do
+  MEM_AVAILABLE_KB="$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)"
+  if [[ "$MEM_AVAILABLE_KB" -ge "$MIN_MEM_KB" ]]; then
+    log "MemAvailable=${MEM_AVAILABLE_KB} kB; starting STAR"
+    break
+  fi
+
+  log "MemAvailable=${MEM_AVAILABLE_KB} kB < ${MIN_MEM_KB} kB; waiting ${WAIT_SEC}s"
+  sleep "$WAIT_SEC"
+done
+
+exec "$REAL_STAR_BIN" "$@"
