@@ -32,6 +32,11 @@ echo '[5/6] Public repository layout'
 [[ -s config/samples.example.csv ]]
 [[ -x 4.Scripts/endo-exo.sh ]]
 [[ -x 4.Scripts/maintenance/backup_project.sh ]]
+[[ -x 4.Scripts/docker/image_common.sh ]]
+[[ -x 4.Scripts/docker/export_images.sh ]]
+[[ -x 4.Scripts/docker/load_images.sh ]]
+[[ -x 4.Scripts/docker/verify_images.sh ]]
+[[ -x 4.Scripts/docker/distribute_images_slurm.sh ]]
 
 echo '[6/6] Sanitized tracked content'
 if git grep -n -I -E \
