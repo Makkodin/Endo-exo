@@ -33,6 +33,7 @@ For every sample, the pipeline can produce:
 - Linux x86_64;
 - Bash;
 - Git;
+- Python 3.6 or newer on the submission host;
 - Docker Engine;
 - access to the Docker daemon;
 - sufficient storage for FASTQ files, BAM files, and STAR indices.

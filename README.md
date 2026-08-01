@@ -33,6 +33,7 @@
 - Linux x86_64;
 - Bash;
 - Git;
+- Python 3.6 или новее на управляющем узле;
 - Docker Engine;
 - доступ пользователя к Docker daemon;
 - достаточное место для FASTQ, BAM и STAR indices.
