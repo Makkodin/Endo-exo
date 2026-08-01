@@ -34,12 +34,11 @@ echo '[5/6] Public repository layout'
 [[ -x 4.Scripts/maintenance/backup_project.sh ]]
 
 echo '[6/6] Sanitized tracked content'
-if grep -RInI -E \
+if git grep -n -I -E \
   '/var/ssd/|/mnt/raid|/mnt/ceph|[A-Za-z]:\\Users\\|OneDrive' \
-  --exclude=smoke_test.sh \
-  --exclude-dir=.git \
-  .; then
-  echo 'ERROR: internal path detected' >&2
+  -- . |
+  grep -v '^tests/smoke_test\.sh:'; then
+  echo 'ERROR: internal path detected in tracked content' >&2
   exit 2
 fi
 
