@@ -34,8 +34,8 @@ RUN_THREADS=$(printf '%q' "$RUN_THREADS")
 COPY_FASTQ=$(printf '%q' "$COPY_FASTQ")
 CLEAN_INCOMPLETE=$(printf '%q' "$CLEAN_INCOMPLETE")
 CLEANUP_HEAVY=$(printf '%q' "$CLEANUP_HEAVY")
-line=\$(awk -v n="\${SLURM_ARRAY_TASK_ID}" 'BEGIN{FS="\\t"} NR==n+1{print;exit}' "\$NORMALIZED")
-IFS=\$'\\t' read -r sample type sra fq1 fq2 <<< "\$line"
+line=\$(awk -v n="\${SLURM_ARRAY_TASK_ID}" 'BEGIN{FS="\\t"} NR==n+1{printf "%s\\034%s\\034%s\\034%s\\034%s\\n", \$1, \$2, \$3, \$4, \$5; exit}' "\$NORMALIZED")
+IFS=\$'\\034' read -r sample type sra fq1 fq2 <<< "\$line"
 [[ -n "\$sample" ]] || { echo "ERROR: no row for task \${SLURM_ARRAY_TASK_ID}" >&2; exit 2; }
 node="\${SLURMD_NODENAME:-\$(hostname)}"; export STAR_LOCK_FILE="/project/_Logs/.star_memory.lock.\${node}"
 cmd=(bash "\${PROJECT_DIR}/4.Scripts/docker/run_in_core.sh" bash 4.Scripts/pipeline/run_one_sample.sh --sample "\$sample" --input-type "\$type" --threads "\$RUN_THREADS")

@@ -19,6 +19,154 @@ def sha(p):
         for b in iter(lambda:f.read(8*1024*1024),b''):h.update(b)
     return h.hexdigest()
 def token(x):return re.sub(r'[^A-Za-z0-9._-]+','_',str(x)).strip('_') or 'NA'
+
+READABLE_PREFIX = {
+ 'human_gene':'GENE_TPM',
+ 'hpv_gene':'HPV_RPM',
+ 'herv_class':'HERV_CLASS_CPM',
+ 'herv_family':'HERV_FAMILY_CPM',
+ 'herv_repeat_name':'HERV_REPEAT_CPM',
+ 'te_class':'TE_CLASS_CPM',
+ 'te_family':'TE_FAMILY_CPM',
+ 'te_repeat_name':'TE_REPEAT_CPM',
+ 'telescope_class':'TEL_CLASS_RPM',
+ 'telescope_family':'TEL_FAMILY_RPM',
+ 'telescope_repeat_name':'TEL_REPEAT_RPM',
+}
+
+def clean_feature_value(value):
+    if pd.isna(value):
+        return ''
+    value=str(value).strip()
+    if value.lower() in {'','na','nan','none'}:
+        return ''
+    value=value.replace('|','/')
+    value=re.sub(r'\s+','_',value)
+    return value
+
+def compact_feature_parts(values):
+    output=[]
+    seen=set()
+    for value in values:
+        value=clean_feature_value(value)
+        if not value or value in seen:
+            continue
+        output.append(value)
+        seen.add(value)
+    return output
+
+def format_repeat_name(value):
+    value=clean_feature_value(value)
+
+    match=re.fullmatch(
+        r'\(([A-Za-z]+)\)n',
+        value,
+    )
+
+    if match:
+        return 'motif='+match.group(1)
+
+    return value
+
+def readable_feature_label(name,metric,row,feature_id_value):
+    if name=='human_gene':
+        parts=[
+            row.get('gene_name',''),
+            row.get('gene_id_base',''),
+        ]
+
+    elif name=='hpv_gene':
+        parts=[
+            row.get('hpv_reference',''),
+            row.get('hpv_gene_name',''),
+            row.get('gene_id',''),
+        ]
+
+    else:
+        class_group=clean_feature_value(
+            row.get('te_class_group','')
+        )
+        repeat_class=clean_feature_value(
+            row.get('repeat_class','')
+        )
+        repeat_family=clean_feature_value(
+            row.get('repeat_family','')
+        )
+        repeat_name=format_repeat_name(
+            row.get('repeat_name','')
+        )
+
+        if name.endswith('_class'):
+            parts=[
+                class_group,
+                repeat_class,
+            ]
+
+        elif name.endswith('_family'):
+            parts=[
+                class_group,
+                repeat_class,
+                repeat_family,
+            ]
+
+        else:
+            parts=[
+                class_group,
+                repeat_class,
+                repeat_family,
+                repeat_name,
+            ]
+
+    parts=compact_feature_parts(parts)
+
+    if not parts:
+        fallback=clean_feature_value(
+            feature_id_value
+        ) or 'NA'
+        parts=[fallback]
+
+    prefix=READABLE_PREFIX.get(
+        name,
+        name.upper()+'_'+metric.upper(),
+    )
+
+    return prefix+'|'+'|'.join(parts)
+
+def unique_feature_columns(labels,feature_ids):
+    totals={}
+    for label in labels:
+        totals[label]=totals.get(label,0)+1
+
+    output=[]
+    used=set()
+
+    for label,feature_id_value in zip(labels,feature_ids):
+        if totals[label]==1 and label not in used:
+            column=label
+        else:
+            digest=hashlib.sha1(
+                feature_id_value.encode('utf-8')
+            ).hexdigest()[:10]
+            column=label+'|uid='+digest
+
+        suffix=2
+        base=column
+
+        while column in used:
+            column=base+'_'+str(suffix)
+            suffix+=1
+
+        used.add(column)
+        output.append(column)
+
+    return output
+
+def include_in_analysis_ready(name,row):
+    # Сохраняем все классы признаков без скрытой фильтрации.
+    return True
+
+def analysis_exclusion_reason(name,row):
+    return ''
 def read(path,**kw):return pd.read_csv(path,sep='\t',low_memory=False,**kw)
 def feature_id(df,cols):
     vals=[df[c].fillna('NA').astype(str) if c in df else pd.Series(['NA']*len(df),index=df.index) for c in cols]
@@ -45,7 +193,7 @@ LOCUS_BLOCKS={
  'telescope_locus':{'rel':'11_telescope/{s}.telescope_counts.normalized.tsv','id':'locus_id','ann':['repeat_name','repeat_class','te_class_group','repeat_family','is_herv_ltr_erv_like'],'metrics':['telescope_count','telescope_rpm']},
 }
 
-def write_summary_block(name,spec,samples,results,out_root,registry,analysis_parts):
+def write_summary_block(name,spec,samples,results,out_root,registry,analysis_parts,feature_dictionary):
     bd=out_root/'blocks'/name; bd.mkdir(parents=True,exist_ok=True)
     metric_series={m:{} for m in spec['metrics']}; anns=[]; longs=[]
     for sample in samples:
@@ -64,7 +212,9 @@ def write_summary_block(name,spec,samples,results,out_root,registry,analysis_par
             if metric in d:
                 metric_series[metric][sample]=pd.Series(pd.to_numeric(d[metric],errors='coerce').fillna(0).to_numpy(),index=d['feature_id'].astype(str),name=sample)
     if not longs:return
-    ann=pd.concat(anns,ignore_index=True).drop_duplicates('feature_id'); ann.to_csv(bd/f'{name}.feature_annotation.tsv.gz',sep='\t',index=False,compression='gzip')
+    ann=pd.concat(anns,ignore_index=True).drop_duplicates('feature_id')
+    ann.to_csv(bd/f'{name}.feature_annotation.tsv.gz',sep='\t',index=False,compression='gzip')
+    ann_lookup=ann.set_index('feature_id',drop=False)
     long=pd.concat(longs,ignore_index=True); long.to_csv(bd/f'{name}.long.tsv.gz',sep='\t',index=False,compression='gzip'); long.to_parquet(bd/f'{name}.long.parquet',index=False)
     for metric,series in metric_series.items():
         if not series:continue
@@ -73,7 +223,65 @@ def write_summary_block(name,spec,samples,results,out_root,registry,analysis_par
         mat.reset_index().to_csv(f,sep='\t',index=False,compression='gzip'); mat.T.rename_axis('sample_id').reset_index().to_csv(g,sep='\t',index=False,compression='gzip')
         registry.append({'block':name,'level':'gene' if name.endswith('gene') else name.split('_',1)[-1],'metric':metric,'storage':'dense_tsv_gz+parquet_long','n_features':len(mat),'n_samples':mat.shape[1],'feature_by_sample':str(f.relative_to(out_root)),'sample_by_feature':str(g.relative_to(out_root)),'primary_normalized_metric':metric==spec['primary']})
         if metric==spec['primary']:
-            x=mat.T.copy(); x.columns=[f'{name}__{metric}__{token(c)}' for c in x.columns]; analysis_parts.append(x)
+            x=mat.T.copy()
+            feature_ids=[str(c) for c in x.columns]
+            labels=[]
+            include=[]
+            records=[]
+
+            for fid in feature_ids:
+                if fid in ann_lookup.index:
+                    row=ann_lookup.loc[fid]
+                else:
+                    row=pd.Series({'feature_id':fid})
+
+                label=readable_feature_label(
+                    name,
+                    metric,
+                    row,
+                    fid,
+                )
+                keep=include_in_analysis_ready(name,row)
+
+                record={
+                    'block':name,
+                    'metric':metric,
+                    'feature_id':fid,
+                    'feature_label':label,
+                    'included_in_analysis_ready':bool(keep),
+                    'exclusion_reason':analysis_exclusion_reason(
+                        name,
+                        row,
+                    ),
+                }
+
+                for column in spec['ann']:
+                    record[column]=clean_feature_value(
+                        row.get(column,'')
+                    )
+
+                labels.append(label)
+                include.append(keep)
+                records.append(record)
+
+            wide_columns=unique_feature_columns(
+                labels,
+                feature_ids,
+            )
+            x.columns=wide_columns
+
+            for record,column in zip(
+                records,
+                wide_columns,
+            ):
+                record['wide_column_name']=column
+                feature_dictionary.append(record)
+
+            keep_mask=np.asarray(include,dtype=bool)
+            x=x.loc[:,keep_mask]
+
+            if x.shape[1]:
+                analysis_parts.append(x)
 
 def write_locus_sparse(name,spec,samples,results,out_root,registry):
     bd=out_root/'locus_sparse'/name; bd.mkdir(parents=True,exist_ok=True)
@@ -131,8 +339,8 @@ def main():
         if p.is_file():rows.append(read(p))
     run=pd.concat(rows,ignore_index=True) if rows else pd.DataFrame({'sample_id':samples})
     run.to_csv(out/'run_sample_features.tsv',sep='\t',index=False); run.to_parquet(out/'run_sample_features.parquet',index=False)
-    registry=[]; analysis=[]
-    for name,spec in SUMMARY_BLOCKS.items():write_summary_block(name,spec,samples,results,out,registry,analysis)
+    registry=[]; analysis=[]; feature_dictionary=[]
+    for name,spec in SUMMARY_BLOCKS.items():write_summary_block(name,spec,samples,results,out,registry,analysis,feature_dictionary)
     if a.build_locus_sparse:
         for name,spec in LOCUS_BLOCKS.items():write_locus_sparse(name,spec,samples,results,out,registry)
     for label,rel in [('hpv_status','05_hpv_calling/{s}.hpv_final_status.tsv'),('hpv_integration_candidates','07_hpv_integration/{s}.hpv_integration_candidates.tsv'),('hpv_integration_loci','07_hpv_integration/{s}.hpv_integration_loci.annotated.tsv')]:
@@ -143,16 +351,58 @@ def main():
                 d=read(p); d.insert(0,'sample_id_run',s); parts.append(d)
         if parts:
             x=pd.concat(parts,ignore_index=True); x.to_csv(out/f'{label}.long.tsv.gz',sep='\t',index=False,compression='gzip'); x.to_parquet(out/f'{label}.long.parquet',index=False)
-    reg=pd.DataFrame(registry); reg.to_csv(out/'feature_registry.tsv',sep='\t',index=False)
+    reg=pd.DataFrame(registry)
+    reg.to_csv(
+        out/'feature_registry.tsv',
+        sep='\t',
+        index=False,
+    )
+
+    feature_dict=pd.DataFrame(feature_dictionary)
+
+    if not feature_dict.empty:
+        feature_dict.to_csv(
+            out/'analysis_feature_dictionary.tsv.gz',
+            sep='\t',
+            index=False,
+            compression='gzip',
+        )
+        feature_dict.to_parquet(
+            out/'analysis_feature_dictionary.parquet',
+            index=False,
+        )
     if analysis:
         base=pd.DataFrame(index=samples)
-        for x in analysis:base=base.join(x,how='left')
-        base=base.fillna(0.0); base.index.name='sample_id'; dense=base.reset_index()
+        for x in analysis:
+            overlap=base.columns.intersection(
+                x.columns
+            )
+
+            if len(overlap):
+                raise RuntimeError(
+                    'global readable feature collision: ' +
+                    ','.join(
+                        str(value)
+                        for value in overlap[:20]
+                    )
+                )
+
+            base=base.join(
+                x,
+                how='left',
+            )
+        base=base.fillna(0.0)
+        base.index.name='sample_id'
+        dense=base.reset_index()
+        if dense.columns.duplicated().any():
+            duplicates=dense.columns[dense.columns.duplicated()].tolist()
+            raise RuntimeError('duplicate readable feature columns: '+','.join(duplicates[:20]))
         dense.to_csv(out/'analysis_ready_normalized_sample_by_feature.tsv.gz',sep='\t',index=False,compression='gzip'); dense.to_parquet(out/'analysis_ready_normalized_sample_by_feature.parquet',index=False)
     checks=[
       {'check':'all_requested_samples_complete','passed':len(samples)==len(requested),'observed':len(samples),'expected':len(requested)},
       {'check':'run_sample_features_rows','passed':len(run)==len(samples),'observed':len(run),'expected':len(samples)},
       {'check':'feature_registry_nonempty','passed':not reg.empty,'observed':len(reg),'expected':'>0'},
+      {'check':'analysis_feature_dictionary_nonempty','passed':not feature_dict.empty,'observed':len(feature_dict),'expected':'>0'},
       {'check':'no_clinical_sample_metadata','passed':set(manifest.columns)=={'sample','input_type','sra','Fq1','Fq2'},'observed':','.join(manifest.columns),'expected':'sample,input_type,sra,Fq1,Fq2'},
     ]
     pd.DataFrame(checks).to_csv(out/'run_feature_validation.tsv',sep='\t',index=False); passed=all(x['passed'] for x in checks)

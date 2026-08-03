@@ -33,6 +33,7 @@ mkdir -p "$OUT_DIR" "$LOG_DIR"
 LOG_FILE="${LOG_DIR}/09_herv_expression.log"
 
 COUNTS="${OUT_DIR}/${SAMPLE_ID}.herv_locus_counts.tsv"
+NORMALIZED="${OUT_DIR}/${SAMPLE_ID}.herv_locus_counts.normalized.tsv"
 OVERVIEW="${OUT_DIR}/${SAMPLE_ID}.herv_expression_overview.tsv"
 CLASS_SUMMARY="${OUT_DIR}/${SAMPLE_ID}.herv_repeat_class_summary.tsv"
 FAMILY_SUMMARY="${OUT_DIR}/${SAMPLE_ID}.herv_repeat_family_summary.tsv"
@@ -63,9 +64,9 @@ if [[ ! -s "${BAM}.bai" ]]; then
   samtools index "$BAM"
 fi
 
-if [[ "${FORCE:-0}" != "1" && -s "$COUNTS" && -s "$OVERVIEW" && -s "$CLASS_SUMMARY" && -s "$FAMILY_SUMMARY" && -s "$NAME_SUMMARY" ]]; then
+if [[ "${FORCE:-0}" != "1" && -s "$COUNTS" && -s "$NORMALIZED" && -s "$OVERVIEW" && -s "$CLASS_SUMMARY" && -s "$FAMILY_SUMMARY" && -s "$NAME_SUMMARY" ]]; then
   echo "[$(date)] SKIP HERV expression: outputs already exist" | tee -a "$LOG_FILE"
-  ls -lh "$COUNTS" "$OVERVIEW" "$CLASS_SUMMARY" "$FAMILY_SUMMARY" "$NAME_SUMMARY" | tee -a "$LOG_FILE"
+  ls -lh "$COUNTS" "$NORMALIZED" "$OVERVIEW" "$CLASS_SUMMARY" "$FAMILY_SUMMARY" "$NAME_SUMMARY" | tee -a "$LOG_FILE"
   exit 0
 fi
 
@@ -101,4 +102,4 @@ echo "[$(date)] Top HERV repeat names:" | tee -a "$LOG_FILE"
 head -20 "${OUT_DIR}/${SAMPLE_ID}.herv_repeat_name_summary.tsv" | tee -a "$LOG_FILE"
 
 echo "[$(date)] Top HERV loci:" | tee -a "$LOG_FILE"
-head -20 "${OUT_DIR}/${SAMPLE_ID}.herv_top_loci.tsv" | tee -a "$LOG_FILE"
+head -20 "$NORMALIZED" | tee -a "$LOG_FILE"

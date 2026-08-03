@@ -4,19 +4,19 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-echo '[1/6] Bash syntax'
+echo '[1/7] Bash syntax'
 while IFS= read -r -d '' file; do
   bash -n "$file"
 done < <(find 4.Scripts -type f -name '*.sh' -print0)
 bash -n 4.Scripts/runtime_bin/STAR
 
-echo '[2/6] Python syntax'
+echo '[2/7] Python syntax'
 python3 -m compileall -q 4.Scripts
 
-echo '[3/6] CLI version'
+echo '[3/7] CLI version'
 [[ "$(bash 4.Scripts/endo-exo.sh version)" == 'Endo-exo 3.0.0' ]]
 
-echo '[4/6] SRA input parser'
+echo '[4/7] SRA input parser'
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 printf 'sample,Fq1,Fq2\nsmoke_sra,sra:SRR123456,\n' > "$tmp"
@@ -26,7 +26,7 @@ python3 4.Scripts/common/validate_samples.py \
   --format summary |
   grep -q 'sra=1'
 
-echo '[5/6] Public repository layout'
+echo '[5/7] Public repository layout'
 [[ -s README.md ]]
 [[ -s docs/README_EN.md ]]
 [[ -s docs/ru/README.md ]]
@@ -50,7 +50,10 @@ echo '[5/6] Public repository layout'
 [[ -x 4.Scripts/docker/verify_images.sh ]]
 [[ -x 4.Scripts/docker/distribute_images_slurm.sh ]]
 
-echo '[6/6] Sanitized tracked content'
+echo '[6/7] Runtime regression guards'
+bash tests/regression_runtime_fixes.sh
+
+echo '[7/7] Sanitized tracked content'
 if git grep -n -I -E \
   '/var/ssd/|/mnt/raid|/mnt/ceph|[A-Za-z]:\\Users\\|OneDrive' \
   -- . |
