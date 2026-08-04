@@ -29,7 +29,9 @@ def rpm(value: object, read_pairs: object) -> float:
     denominator = to_float(read_pairs)
     if denominator <= 0:
         return 0.0
-    return round(to_float(value) * 1_000_000.0 / denominator, 6)
+    # Preserve full numerical precision for downstream analyses.
+    # Apply rounding only when presenting or formatting results.
+    return to_float(value) * 1_000_000.0 / denominator
 
 def normalize_class(value: object) -> str:
     raw = str(value).strip()

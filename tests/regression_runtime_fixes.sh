@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-echo '[regression 1/4] Empty SRA field preserves FASTQ columns'
+echo '[regression 1/5] Empty SRA field preserves FASTQ columns'
 
 tmp_normalized="$(mktemp)"
 
@@ -77,7 +77,7 @@ if missing:
 print("empty_sra_parser_guard=OK")
 PY
 
-echo '[regression 2/4] HERV normalized-locus output is canonical'
+echo '[regression 2/5] HERV normalized-locus output is canonical'
 
 python3 - <<'PY'
 from pathlib import Path
@@ -118,7 +118,7 @@ for value in forbidden:
 print("herv_normalized_output_guard=OK")
 PY
 
-echo '[regression 3/4] Readable feature names are stable and unique'
+echo '[regression 3/5] Readable feature names are stable and unique'
 
 python3 - <<'PY'
 from __future__ import print_function
@@ -374,7 +374,7 @@ for marker in required_source_markers:
 print("readable_feature_name_guard=OK")
 PY
 
-echo '[regression 4/4] Pipeline provenance is resolved and propagated'
+echo '[regression 4/5] Pipeline provenance is resolved and propagated'
 
 (
   unset PROJECT_DIR
@@ -493,15 +493,39 @@ script_requirements = {
     ],
 }
 
+def canonicalize_provenance_fragment(value):
+    normalized = "".join(
+        value.replace('"', "'").split()
+    )
+
+    # Permit trailing commas in multiline Python calls,
+    # for example os.getenv("NAME", "unknown",).
+    while ",)" in normalized:
+        normalized = normalized.replace(
+            ",)",
+            ")",
+        )
+
+    return normalized
+
+
 for script_path, required_fragments in script_requirements.items():
     source = script_path.read_text(
         encoding="utf-8"
     )
 
+    normalized_source = (
+        canonicalize_provenance_fragment(
+            source
+        )
+    )
+
     missing = [
         fragment
         for fragment in required_fragments
-        if fragment not in source
+        if canonicalize_provenance_fragment(
+            fragment
+        ) not in normalized_source
     ]
 
     if missing:
@@ -511,8 +535,11 @@ for script_path, required_fragments in script_requirements.items():
                 ", ".join(missing),
             )
         )
-
 print("pipeline_provenance_guard=OK")
 PY_PROVENANCE
+
+echo '[regression 5/5] Telescope parsing, RPM precision, and strict validation'
+
+python3 tests/telescope_runtime_contract.py
 
 echo 'RUNTIME REGRESSION TESTS PASSED'
