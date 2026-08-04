@@ -26,6 +26,8 @@ def check_table(path,key=None,nonnegative=()):
     return True,'ok',len(d)
 def main():
     version=os.getenv('ENDO_EXO_VERSION','unknown')
+    git_commit=os.getenv('ENDO_EXO_GIT_COMMIT','unknown')
+    git_describe=os.getenv('ENDO_EXO_GIT_DESCRIBE','unknown')
     a=parse(); sd=Path(a.sample_dir); checks=[]
     def add(name,path,required=True,key=None,nonnegative=()):
         ok,msg,n=check_table(path,key,nonnegative)
@@ -49,7 +51,16 @@ def main():
     for p in sd.rglob('*.tsv'):
         if p.is_file() and p.stat().st_size>0 and ('normalized' in p.name or 'summary' in p.name or p.name.endswith('features.tsv')):
             files[str(p.relative_to(sd))]={'size_bytes':p.stat().st_size,'sha256':sha(p)}
-    marker={'sample':a.sample,'status':'complete' if passed else 'failed_validation','strict_validation_passed':passed,'validated_at_utc':datetime.now(timezone.utc).isoformat(),'pipeline_version':version,'validated_feature_files':files}
+    marker={
+      'sample':a.sample,
+      'status':'complete' if passed else 'failed_validation',
+      'strict_validation_passed':passed,
+      'validated_at_utc':datetime.now(timezone.utc).isoformat(),
+      'pipeline_version':version,
+      'pipeline_git_commit':git_commit,
+      'pipeline_git_describe':git_describe,
+      'validated_feature_files':files,
+    }
     Path(a.marker).write_text(json.dumps(marker,indent=2,ensure_ascii=False)+'\n')
     if not passed:
         print(out[~out['passed']].to_string(index=False)); raise SystemExit(2)

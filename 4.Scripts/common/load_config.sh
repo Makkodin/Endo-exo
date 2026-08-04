@@ -7,6 +7,27 @@ PROJECT_DIR="${PROJECT_DIR:-$(cd "${ENDO_EXO_SCRIPT_ROOT}/.." && pwd)}"
 PIPELINE_CONFIG="${PIPELINE_CONFIG:-${PROJECT_DIR}/config/pipeline.conf}"
 SLURM_CONFIG="${SLURM_CONFIG:-${PROJECT_DIR}/config/slurm.conf}"
 
+ENDO_EXO_GIT_COMMIT="${ENDO_EXO_GIT_COMMIT:-unknown}"
+ENDO_EXO_GIT_DESCRIBE="${ENDO_EXO_GIT_DESCRIBE:-unknown}"
+
+if command -v git >/dev/null 2>&1 \
+  && git -C "$PROJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1
+then
+  if [[ "$ENDO_EXO_GIT_COMMIT" == "unknown" ]]; then
+    ENDO_EXO_GIT_COMMIT="$(
+      git -C "$PROJECT_DIR" rev-parse HEAD 2>/dev/null \
+        || printf 'unknown'
+    )"
+  fi
+
+  if [[ "$ENDO_EXO_GIT_DESCRIBE" == "unknown" ]]; then
+    ENDO_EXO_GIT_DESCRIBE="$(
+      git -C "$PROJECT_DIR" describe --tags --always --dirty 2>/dev/null \
+        || printf 'unknown'
+    )"
+  fi
+fi
+
 if [[ -s "$PIPELINE_CONFIG" ]]; then
   # shellcheck disable=SC1090
   source "$PIPELINE_CONFIG"
@@ -35,6 +56,7 @@ ENDO_EXO_TELESCOPE_IMAGE="${ENDO_EXO_TELESCOPE_IMAGE:-endo-exo/telescope:${ENDO_
 
 export PROJECT_DIR PIPELINE_CONFIG SLURM_CONFIG DATA_DIR RESULTS_DIR REFS_DIR LOGS_DIR
 export ENDO_EXO_VERSION ENDO_EXO_CORE_IMAGE ENDO_EXO_TELESCOPE_IMAGE
+export ENDO_EXO_GIT_COMMIT ENDO_EXO_GIT_DESCRIBE
 export DEFAULT_EXECUTOR="${DEFAULT_EXECUTOR:-auto}"
 export THREADS="${THREADS:-16}" LOCAL_JOBS="${LOCAL_JOBS:-1}"
 export TELESCOPE_THREADS="${TELESCOPE_THREADS:-8}" TELESCOPE_JOBS="${TELESCOPE_JOBS:-1}" TELESCOPE_USE_DOCKER="${TELESCOPE_USE_DOCKER:-1}"

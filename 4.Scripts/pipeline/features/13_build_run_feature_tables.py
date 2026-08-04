@@ -322,6 +322,8 @@ def write_locus_sparse(name,spec,samples,results,out_root,registry):
 
 def main():
     version=os.getenv('ENDO_EXO_VERSION','unknown')
+    git_commit=os.getenv('ENDO_EXO_GIT_COMMIT','unknown')
+    git_describe=os.getenv('ENDO_EXO_GIT_DESCRIBE','unknown')
     a=parse(); results=Path(a.results_dir); out=Path(a.out_dir); out.mkdir(parents=True,exist_ok=True)
     manifest=read(a.samples_normalized); requested=manifest['sample'].astype(str).tolist(); samples=[]; status=[]
     for s in requested:
@@ -406,7 +408,20 @@ def main():
       {'check':'no_clinical_sample_metadata','passed':set(manifest.columns)=={'sample','input_type','sra','Fq1','Fq2'},'observed':','.join(manifest.columns),'expected':'sample,input_type,sra,Fq1,Fq2'},
     ]
     pd.DataFrame(checks).to_csv(out/'run_feature_validation.tsv',sep='\t',index=False); passed=all(x['passed'] for x in checks)
-    summary={'run_name':a.run_name,'pipeline_version':version,'status':'complete' if passed else 'incomplete','strict_validation_passed':passed,'n_requested_samples':len(requested),'n_complete_samples':len(samples),'completed_at_utc':datetime.now(timezone.utc).isoformat(),'clinical_sample_metadata_included':False,'reports_generated':False,'locus_sparse_matrices_built':bool(a.build_locus_sparse)}
+    summary={
+      'run_name':a.run_name,
+      'pipeline_version':version,
+      'pipeline_git_commit':git_commit,
+      'pipeline_git_describe':git_describe,
+      'status':'complete' if passed else 'incomplete',
+      'strict_validation_passed':passed,
+      'n_requested_samples':len(requested),
+      'n_complete_samples':len(samples),
+      'completed_at_utc':datetime.now(timezone.utc).isoformat(),
+      'clinical_sample_metadata_included':False,
+      'reports_generated':False,
+      'locus_sparse_matrices_built':bool(a.build_locus_sparse),
+    }
     (out/'run_features_complete.json').write_text(json.dumps(summary,indent=2,ensure_ascii=False)+'\n')
     if not passed:raise SystemExit(2)
 if __name__=='__main__':main()

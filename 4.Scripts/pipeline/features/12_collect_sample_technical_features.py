@@ -97,9 +97,18 @@ def command_version(cmd):
 
 def main():
     version=os.getenv('ENDO_EXO_VERSION','unknown')
+    git_commit=os.getenv('ENDO_EXO_GIT_COMMIT','unknown')
+    git_describe=os.getenv('ENDO_EXO_GIT_DESCRIBE','unknown')
     a=parse_args(); sd=Path(a.sample_dir); q=sd/'qc'; star=sd/'03_star_grch38'
-    row={'sample_id':a.sample,'input_type':a.input_type,'sra_accession':a.sra,
-         'collection_time_utc':datetime.now(timezone.utc).isoformat(),'pipeline_version':version}
+    row={
+      'sample_id':a.sample,
+      'input_type':a.input_type,
+      'sra_accession':a.sra,
+      'collection_time_utc':datetime.now(timezone.utc).isoformat(),
+      'pipeline_version':version,
+      'pipeline_git_commit':git_commit,
+      'pipeline_git_describe':git_describe,
+    }
     add_prefixed(row,'library',one(q/f'{a.sample}.library_size.tsv'))
     parse_seqkit(q/f'{a.sample}.raw_seqkit_stats.tsv','raw_fastq',row)
     parse_seqkit(q/f'{a.sample}.processed_seqkit_stats.tsv','processed_fastq',row)
@@ -132,7 +141,10 @@ def main():
     pd.DataFrame(records).to_csv(a.inventory_out,sep='\t',index=False)
 
     versions={
-      'pipeline':f'Endo-exo {version}','python':platform.python_version(),
+      'pipeline':f'Endo-exo {version}',
+      'pipeline_git_commit':git_commit,
+      'pipeline_git_describe':git_describe,
+      'python':platform.python_version(),
       'STAR':command_version(['STAR','--version']),'samtools':command_version(['samtools','--version']),
       'featureCounts':command_version(['featureCounts','-v']),'fastp':command_version(['fastp','--version']),
       'seqkit':command_version(['seqkit','version']),'bowtie2':command_version(['bowtie2','--version']),

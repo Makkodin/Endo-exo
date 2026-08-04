@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-echo '[regression 1/3] Empty SRA field preserves FASTQ columns'
+echo '[regression 1/4] Empty SRA field preserves FASTQ columns'
 
 tmp_normalized="$(mktemp)"
 
@@ -77,7 +77,7 @@ if missing:
 print("empty_sra_parser_guard=OK")
 PY
 
-echo '[regression 2/3] HERV normalized-locus output is canonical'
+echo '[regression 2/4] HERV normalized-locus output is canonical'
 
 python3 - <<'PY'
 from pathlib import Path
@@ -118,7 +118,7 @@ for value in forbidden:
 print("herv_normalized_output_guard=OK")
 PY
 
-echo '[regression 3/3] Readable feature names are stable and unique'
+echo '[regression 3/4] Readable feature names are stable and unique'
 
 python3 - <<'PY'
 from __future__ import print_function
@@ -373,5 +373,146 @@ for marker in required_source_markers:
 
 print("readable_feature_name_guard=OK")
 PY
+
+echo '[regression 4/4] Pipeline provenance is resolved and propagated'
+
+(
+  unset PROJECT_DIR
+  unset PIPELINE_CONFIG
+  unset SLURM_CONFIG
+  unset ENDO_EXO_GIT_COMMIT
+  unset ENDO_EXO_GIT_DESCRIBE
+
+  # shellcheck disable=SC1091
+  source 4.Scripts/common/load_config.sh
+
+  expected_commit="$(
+    git -C "$ROOT" rev-parse HEAD
+  )"
+
+  [[ "$ENDO_EXO_VERSION" == "3.0.0" ]]
+  [[ "$ENDO_EXO_GIT_COMMIT" == "$expected_commit" ]]
+  [[ -n "$ENDO_EXO_GIT_DESCRIBE" ]]
+  [[ "$ENDO_EXO_GIT_DESCRIBE" != "unknown" ]]
+
+  echo "resolved_pipeline_version=$ENDO_EXO_VERSION"
+  echo "resolved_pipeline_git_commit=$ENDO_EXO_GIT_COMMIT"
+  echo "resolved_pipeline_git_describe=$ENDO_EXO_GIT_DESCRIBE"
+)
+
+python3 - <<'PY_PROVENANCE'
+from __future__ import print_function
+
+from pathlib import Path
+
+
+load_config_path = Path(
+    "4.Scripts/common/load_config.sh"
+)
+
+load_config = load_config_path.read_text(
+    encoding="utf-8"
+)
+
+required_config_fragments = [
+    'ENDO_EXO_VERSION="3.0.0"',
+    'ENDO_EXO_GIT_COMMIT="${ENDO_EXO_GIT_COMMIT:-unknown}"',
+    'ENDO_EXO_GIT_DESCRIBE="${ENDO_EXO_GIT_DESCRIBE:-unknown}"',
+    "export ENDO_EXO_GIT_COMMIT ENDO_EXO_GIT_DESCRIBE",
+]
+
+for fragment in required_config_fragments:
+    if fragment not in load_config:
+        raise SystemExit(
+            "Missing provenance configuration fragment: {}".format(
+                fragment
+            )
+        )
+
+
+wrapper_path = Path(
+    "4.Scripts/docker/run_in_core.sh"
+)
+
+wrapper = wrapper_path.read_text(
+    encoding="utf-8"
+)
+
+required_wrapper_fragments = [
+    '-e ENDO_EXO_VERSION="${ENDO_EXO_VERSION}"',
+    '-e ENDO_EXO_GIT_COMMIT="${ENDO_EXO_GIT_COMMIT}"',
+    '-e ENDO_EXO_GIT_DESCRIBE="${ENDO_EXO_GIT_DESCRIBE}"',
+]
+
+for fragment in required_wrapper_fragments:
+    count = wrapper.count(fragment)
+
+    if count != 1:
+        raise SystemExit(
+            "Container provenance forwarding count is {} "
+            "for fragment: {}".format(
+                count,
+                fragment,
+            )
+        )
+
+
+script_requirements = {
+    Path(
+        "4.Scripts/pipeline/features/"
+        "12_collect_sample_technical_features.py"
+    ): [
+        "os.getenv('ENDO_EXO_VERSION','unknown')",
+        "os.getenv('ENDO_EXO_GIT_COMMIT','unknown')",
+        "os.getenv('ENDO_EXO_GIT_DESCRIBE','unknown')",
+        "'pipeline_version':version",
+        "'pipeline_git_commit':git_commit",
+        "'pipeline_git_describe':git_describe",
+    ],
+    Path(
+        "4.Scripts/pipeline/features/"
+        "12_validate_sample_features.py"
+    ): [
+        "os.getenv('ENDO_EXO_VERSION','unknown')",
+        "os.getenv('ENDO_EXO_GIT_COMMIT','unknown')",
+        "os.getenv('ENDO_EXO_GIT_DESCRIBE','unknown')",
+        "'pipeline_version':version",
+        "'pipeline_git_commit':git_commit",
+        "'pipeline_git_describe':git_describe",
+    ],
+    Path(
+        "4.Scripts/pipeline/features/"
+        "13_build_run_feature_tables.py"
+    ): [
+        "os.getenv('ENDO_EXO_VERSION','unknown')",
+        "os.getenv('ENDO_EXO_GIT_COMMIT','unknown')",
+        "os.getenv('ENDO_EXO_GIT_DESCRIBE','unknown')",
+        "'pipeline_version':version",
+        "'pipeline_git_commit':git_commit",
+        "'pipeline_git_describe':git_describe",
+    ],
+}
+
+for script_path, required_fragments in script_requirements.items():
+    source = script_path.read_text(
+        encoding="utf-8"
+    )
+
+    missing = [
+        fragment
+        for fragment in required_fragments
+        if fragment not in source
+    ]
+
+    if missing:
+        raise SystemExit(
+            "{} lacks provenance fragments: {}".format(
+                script_path,
+                ", ".join(missing),
+            )
+        )
+
+print("pipeline_provenance_guard=OK")
+PY_PROVENANCE
 
 echo 'RUNTIME REGRESSION TESTS PASSED'

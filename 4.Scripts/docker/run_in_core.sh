@@ -14,6 +14,9 @@ DOCKER_ARGS=(
   -v "${PROJECT_DIR}:/project"
   -w /project
   -e PROJECT_DIR=/project
+  -e ENDO_EXO_VERSION="${ENDO_EXO_VERSION}"
+  -e ENDO_EXO_GIT_COMMIT="${ENDO_EXO_GIT_COMMIT}"
+  -e ENDO_EXO_GIT_DESCRIBE="${ENDO_EXO_GIT_DESCRIBE}"
   -e ENDO_EXO_IN_CORE=1
   -e ENDO_EXO_DATA_DIR=/project/1.Data
   -e ENDO_EXO_RESULTS_DIR=/project/2.Results
